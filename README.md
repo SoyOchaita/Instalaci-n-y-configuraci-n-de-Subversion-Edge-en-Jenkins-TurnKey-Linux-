@@ -1,4 +1,3 @@
-[README_SVNEDGE_OFFLINE_v2.md](https://github.com/user-attachments/files/22915264/README_SVNEDGE_OFFLINE_v2.md)
 # Proyecto Ingeniería de Software 2 – Fase 1  
 ## Jenkins (TurnKey Linux) + Subversion Edge **offline** con Docker
 
