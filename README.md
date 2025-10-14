@@ -1,8 +1,7 @@
 # Proyecto Ingeniería de Software 2 – Fase 1  
 ## Jenkins (TurnKey Linux) + Subversion Edge **offline** con Docker
 
-**Autor:** Equipo de Ingeniería de Software 2 (UMES 2025)  
-**Mantenedor guía:** Nicolás Ochaita (líder de integración)  
+**Autor:** Alfonso Ochaita
 **Créditos:** Imagen Docker **`svnedge/app`** publicada por el autor *svnedge* en Docker Hub (ver tags y detalles en su página). Sin esa imagen pública este procedimiento no sería posible. Respeta su licencia y términos de uso.
 
 ---
