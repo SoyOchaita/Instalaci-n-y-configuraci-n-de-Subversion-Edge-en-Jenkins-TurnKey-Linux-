@@ -1,158 +1,108 @@
 # Proyecto Ingeniería de Software 2 – Fase 1  
-## Jenkins (TurnKey Linux) + Subversion Edge **offline** con Docker
+## Instalación y configuración de Subversion Edge en Jenkins (TurnKey Linux) sin conexión a Internet
 
-**Autor:** Alfonso Ochaita
-**Créditos:** Imagen Docker **`svnedge/app`** publicada por el autor *svnedge* en Docker Hub (ver tags y detalles en su página). Sin esa imagen pública este procedimiento no sería posible. Respeta su licencia y términos de uso.
-
----
-
-## Objetivo
-
-Levantar **Subversion Edge (SVN Edge)** dentro de una **VM Jenkins TurnKey (Debian 12 “bookworm”)** sin acceso a Internet, **usando Docker en modo offline**, crear el repositorio **`Calculadora`** y dejar URLs de acceso para Eclipse (Subclipse) y el navegador (ViewVC).
+**Autor:** Nicolás Ochaita  
+**Créditos:** Imagen Docker **`svnedge/app`** publicada por *svnedge* en [Docker Hub](https://hub.docker.com/r/svnedge/app/tags).  
+Sin esta imagen pública no sería posible replicar este entorno. Todos los derechos y licencias pertenecen a su autor original.
 
 ---
 
-## Visión general del flujo
+## 🎯 Objetivo
 
-1) En una máquina **con Internet** (WSL/Ubuntu o cualquier Debian/Ubuntu):  
-   - Agregar el repo oficial de **Docker para Debian**.  
-   - Descargar los **paquetes .deb** de Docker **sin instalarlos** (`apt download`).  
-   - (Opcional) Exportar la imagen `svnedge/app` a un `.tar` con `docker save`.  
-   - Calcular checksums y **comprimir** todo para traslado.
-
-2) En la **VM Jenkins (sin Internet)**:  
-   - Subir los `.deb` y el `.tar` por **Webmin / SCP**.  
-   - Instalar Docker con `dpkg -i *.deb`.  
-   - Cargar la imagen `svnedge/app` con `docker load`.  
-   - Ejecutar el contenedor publicando puertos **3344** (SVN) y **18180** (UI/ViewVC).  
-   - Crear el repositorio **`Calculadora`** y probar acceso.
+Instalar y configurar **Subversion Edge (SVN Edge)** dentro de una máquina virtual **TurnKey Jenkins (Debian 12 “Bookworm”)** sin conexión a Internet, usando **Docker offline**, y dejar el sistema funcional con el repositorio del proyecto **Calculadora** accesible desde Eclipse mediante el plugin **Subclipse**.
 
 ---
 
-## Requisitos
+## 🧱 Entorno utilizado
 
-- VM **TurnKey Jenkins** basada en Debian 12 (bookworm).  
-- Acceso **root** a la VM.  
-- **Webmin** activo o SSH para subir archivos.  
-- Un equipo auxiliar **con Internet** (puede ser tu WSL/Ubuntu).
-
-> Comprueba la versión de tu VM: `cat /etc/os-release` → debe decir `Debian GNU/Linux 12 (bookworm)`.
-
----
-
-## 1) Preparación **en una máquina con Internet**
-
-> Ejemplos con **Ubuntu/WSL** (sirve también en Debian).
-
-### 1.1 Agregar el repositorio oficial de Docker **para Debian**
-> *OJO:* aunque estés en Ubuntu/WSL, si vas a descargar paquetes para una VM Debian 12, **haz estos pasos en una máquina Debian 12 con Internet**, o usa el mismo procedimiento pero apuntando a Debian (no a Ubuntu). La forma más simple: usa un **contenedor Debian:bookworm** o una VM Debian con Internet para “bajar” los `.deb`.
-
-```bash
-sudo apt update
-sudo apt install -y ca-certificates curl gnupg
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-https://download.docker.com/linux/debian \
-$(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt update
-```
-
-### 1.2 Descargar **sin instalar** los paquetes `.deb`
-```bash
-mkdir -p ~/docker-offline
-cd ~/docker-offline
-
-apt download \
-  containerd.io \
-  docker-ce \
-  docker-ce-cli \
-  docker-buildx-plugin \
-  docker-compose-plugin
-```
-
-Archivos esperados (nombres pueden variar por versión):
-```
-containerd.io_1.7.xx-1~debian.12~bookworm_amd64.deb
-docker-ce_5:28.x.x-1~debian.12~bookworm_amd64.deb
-docker-ce-cli_5:28.x.x-1~debian.12~bookworm_amd64.deb
-docker-buildx-plugin_0.29.x-1~debian.12~bookworm_amd64.deb
-docker-compose-plugin_2.40.x-1~debian.12~bookworm_amd64.deb
-```
-
-### 1.3 (Opcional pero recomendado) Exportar la imagen `svnedge/app`
-> **Créditos**: Imagen publicada por *svnedge* en Docker Hub. Consulta sus **tags** y términos en su página oficial.
-```bash
-docker pull svnedge/app:latest
-docker save -o svnedge-app.tar svnedge/app:latest
-gzip -9 svnedge-app.tar   # genera svnedge-app.tar.gz
-```
-
-### 1.4 Verificación e integridad
-```bash
-sha256sum *.deb svnedge-app.tar.gz > SHA256SUMS.txt
-```
-
-### 1.5 Empaquetar para traslado
-```bash
-cd ..
-tar -czvf svnedge_offline_bundle.tar.gz docker-offline/ SHA256SUMS.txt
-```
-El archivo `svnedge_offline_bundle.tar.gz` contiene **todos los .deb + checksums**. Lleva también `svnedge-app.tar.gz` si lo generaste.
+- **Sistema operativo:** TurnKey Jenkins (basado en Debian 12 Bookworm)  
+- **Gestor web:** Webmin (interfaz administrativa del sistema)  
+- **Modo de trabajo:** Todo se realizó **desde la terminal integrada en Webmin**  
+  > No se utilizó `sudo` porque Webmin ejecuta comandos directamente como **root**.  
+- **Contenedor:** `svnedge/app` (imagen oficial publicada en Docker Hub)  
+- **Acceso sin Internet:** Todos los paquetes y la imagen Docker fueron **subidos manualmente a la VM mediante Webmin**.
 
 ---
 
-## 2) Instalación **en la VM Jenkins (sin Internet)**
+## 📦 Archivos requeridos antes de iniciar
 
-### 2.1 Subir archivos a la VM
-Métodos sugeridos:
-- **Webmin → Others → File Manager → Upload**  
-- **SCP** desde tu PC con Internet.
+En la carpeta `/root/` de la máquina Jenkins deben existir los siguientes elementos:
 
-Ruta sugerida en la VM:
 ```
-/root/docker-offline/   # .deb
-/root/svnedge-app.tar.gz
-/root/SHA256SUMS.txt    # si lo generaste
+/root/
+ ├── docker-offline/
+ │    ├── containerd.io_1.7.28-1~debian.12~bookworm_amd64.deb
+ │    ├── docker-ce_5%3a28.5.1-1~debian.12~bookworm_amd64.deb
+ │    ├── docker-ce-cli_5%3a28.5.1-1~debian.12~bookworm_amd64.deb
+ │    ├── docker-buildx-plugin_0.29.1-1~debian.12~bookworm_amd64.deb
+ │    └── docker-compose-plugin_2.40.0-1~debian.12~bookworm_amd64.deb
+ └── svnedge-app.tar.gz
 ```
 
-### 2.2 (Opcional) Verificar integridad
+📤 Todos estos archivos fueron **subidos manualmente** por Webmin  
+(`Others → File Manager → Upload to current directory`).
+
+---
+
+## 🪄 Procedimiento completo paso a paso
+
+### 1️⃣ Descomprimir la imagen Docker de Subversion Edge
+
 ```bash
 cd /root
-sha256sum -c SHA256SUMS.txt
-# Debe decir "OK" para cada archivo
+gunzip svnedge-app.tar.gz
 ```
 
-### 2.3 Instalar Docker **offline**
+Esto genera el archivo:
+```
+svnedge-app.tar
+```
+
+---
+
+### 2️⃣ Instalar Docker de forma offline
+
 ```bash
 cd /root/docker-offline
 dpkg -i *.deb
 systemctl enable docker
 systemctl start docker
+```
+
+Verificar instalación:
+
+```bash
 docker --version
 ```
+> Si muestra la versión de Docker, la instalación fue exitosa.
 
-### 2.4 Cargar la imagen `svnedge/app`
+---
+
+### 3️⃣ Cargar la imagen `svnedge/app`
+
 ```bash
 cd /root
-gunzip -t svnedge-app.tar.gz  # prueba compresión
-gunzip svnedge-app.tar.gz
 docker load -i svnedge-app.tar
-docker images | grep svnedge
+docker images
+```
+Deberías ver algo como:
+```
+REPOSITORY     TAG       IMAGE ID       SIZE
+svnedge/app    latest    9e077ed8a6df   590MB
 ```
 
-Salida esperada:
-```
-svnedge/app   latest   <IMAGE_ID>   590MB (aprox.)
+---
+
+### 4️⃣ Crear y ejecutar el contenedor
+
+Primero elimina versiones anteriores del contenedor (si existían):
+```bash
+docker rm -f svnedge
 ```
 
-### 2.5 Ejecutar el contenedor publicando puertos
-> Si el puerto 18080 del host ya está en uso por Jenkins/Tomcat, expón **18180** hacia el **18080** interno.
+Luego crea uno nuevo publicando los puertos necesarios:
 
 ```bash
-docker rm -f svnedge 2>/dev/null || true
-
 docker run -d \
   -p 3344:3343 \
   -p 18180:18080 \
@@ -161,111 +111,143 @@ docker run -d \
   svnedge/app
 ```
 
-Verifica:
+📌 **Descripción de puertos:**
+| Puerto interno | Puerto externo | Función |
+|----------------|----------------|----------|
+| 3343 | 3344 | Servicio Subversion (repositorios SVN) |
+| 18080 | 18180 | Interfaz web y navegador ViewVC |
+
+Verifica que esté activo:
 ```bash
 docker ps
-# Esperado: 0.0.0.0:3344->3343/tcp, 0.0.0.0:18180->18080/tcp
+```
+Salida esperada:
+```
+PORTS
+0.0.0.0:3344->3343/tcp, 0.0.0.0:18180->18080/tcp
 ```
 
-> **3344** (host) ↔ **3343** (contenedor) = servicio SVN  
-> **18180** (host) ↔ **18080** (contenedor) = panel Web + ViewVC
+---
+
+### 5️⃣ Acceder a la interfaz web
+
+Desde un navegador en tu equipo (mismo segmento de red que la VM):
+
+- **Panel de administración:**  
+  `http://IP_DE_LA_VM:18180`
+- **Navegador de código (ViewVC):**  
+  `http://IP_DE_LA_VM:18180/viewvc`
+- **Repositorio directo (para Eclipse/Subclipse):**  
+  `http://IP_DE_LA_VM:3344/svn/Calculadora`
+
+> Reemplaza `IP_DE_LA_VM` por la IP real de tu máquina Jenkins (por ejemplo `192.168.1.36`).
 
 ---
 
-## 3) Configuración de Subversion Edge
+### 6️⃣ Configurar Subversion Edge
 
-### 3.1 Abrir interfaz web
-Navegador → `http://IP_DE_LA_VM:18180`  
-Crea el usuario **admin** y completa el asistente.
+1. Accede al panel web (`http://IP_DE_LA_VM:18180`)  
+2. Crea el usuario **admin** cuando lo pida el asistente inicial  
+3. Acepta la licencia y finaliza la configuración  
+4. Verifica que el **Subversion status** aparezca como **Up**  
+5. En el menú lateral, selecciona **Repositories → Create**  
+6. Escribe el nombre del repositorio:  
+   ```
+   Calculadora
+   ```
+7. Da clic en **Create**
+8. Asegúrate de que el estado sea **OK**
 
-### 3.2 Confirmar estado del servidor SVN
-En el dashboard debe aparecer **Subversion status: Up**. Si no, **Start**.
-
-### 3.3 Crear el repositorio del proyecto
-- Menú **Repositories → Create**
-- Nombre: **`Calculadora`**
-- Guardar.
-
-### 3.4 Probar URLs de acceso
-- **Panel (administración):** `http://IP_VM:18180`  
-- **ViewVC (browser de código):** `http://IP_VM:18180/viewvc`  
-- **Repositorio (SVN, para Eclipse/Subclipse):**  
-  `http://IP_VM:3344/svn/Calculadora`
-
-> Reemplaza `IP_VM` por la IP real de tu Jenkins (ej. `192.168.1.36`).
+La URL del repositorio será:
+```
+http://IP_DE_LA_VM:3344/svn/Calculadora
+```
 
 ---
 
-## 4) Conectar desde Eclipse (Subclipse)
+### 7️⃣ Probar conexión desde la terminal
 
-1. Instalar **Subclipse** desde Marketplace.  
-2. `SVN Repository Exploring` → **New Repository Location** → URL:  
-   `http://IP_VM:3344/svn/Calculadora`  
-3. Usuario/clave (el que creaste en SVN Edge).  
-4. Crea el proyecto **Calculadora** (Java SE).  
-5. Estructura mínima solicitada por el curso:
+```bash
+svn list http://IP_DE_LA_VM:3344/svn/Calculadora --username admin
+```
+Debe pedir la contraseña y devolver un listado vacío (repositorio nuevo).
 
+---
+
+### 8️⃣ Conectar desde Eclipse (Subclipse)
+
+1. Instalar **Subclipse** desde Marketplace  
+2. Abrir la perspectiva **SVN Repository Exploring**  
+3. Agregar nueva ubicación con:  
+   - URL: `http://IP_DE_LA_VM:3344/svn/Calculadora`  
+   - Usuario: `admin`  
+   - Contraseña: *(la que definiste)*  
+4. Crear el proyecto Java **Calculadora**  
+5. Estructura mínima exigida por el curso:
 ```
 Calculadora/
  ├── src/gt/edu/umes/proy/
- │    ├── Calculadora.java        # contiene main(String[] args)
- │    └── LogicaDelNegocio.java   # validaciones + suma + promedio
+ │    ├── Calculadora.java        # Clase con método main()
+ │    └── LogicaDelNegocio.java   # Funciones suma y promedio
  ├── .classpath
  ├── .project
  └── README.md
 ```
-
-6. `Team → Share Project → SVN` → selecciona el repo → **Commit** inicial.
-
----
-
-## 5) Solución de problemas comunes
-
-- **404 en `/svn/Calculadora` o `/viewvc`**  
-  → Asegúrate de publicar **ambos puertos**: `3344:3343` y `18180:18080`.  
-  → En el navegador usa **18180** para el panel/ViewVC; **3344** solo para SVN.
-
-- **DNS_PROBE_FINISHED_NXDOMAIN** con `http://<ID_DEL_CONTENEDOR>:`  
-  → Usa la **IP de la VM**, no el nombre interno del contenedor.
-
-- **“address already in use” al crear el contenedor**  
-  → Cambia el puerto externo (ej. `-p 18181:18080`) o libera el puerto.
-
-- **No veo el panel pero sí el contenedor**  
-  → `docker logs -f svnedge` y revisa errores.  
-  → `systemctl status docker` (que Docker esté activo).
-
-- **Persistencia de datos** (recomendado):  
-  Recrea el contenedor montando un volumen:
-  ```bash
-  docker rm -f svnedge
-  mkdir -p /var/svn-data
-  docker run -d \
-    -p 3344:3343 -p 18180:18080 \
-    -v /var/svn-data:/var/opt/csvn \
-    --restart always \
-    --name svnedge \
-    svnedge/app
-  ```
-  Ahora los repos viven en `/var/svn-data` del host.
+6. Compartirlo con SVN:  
+   **Team → Share Project → SVN → Commit inicial**
 
 ---
 
-## Créditos y licencias
+## 🧰 Solución de problemas comunes
 
-- **Imagen Docker `svnedge/app`** → Autor: *svnedge* (Docker Hub).  
-  Atribución: “SVN Edge Official Release Image”. Respeta los **términos/licencias** de la imagen y del software Subversion Edge.  
-- Documentación de **Docker Engine para Debian**: repos oficiales de Docker.  
-- Esta guía describe un procedimiento **educativo** para fines académicos (UMES 2025).
+| Problema | Causa probable | Solución |
+|-----------|----------------|-----------|
+| No abre `/viewvc` o `/svn/Calculadora` | El puerto `18080` interno no estaba publicado | Recrear contenedor con `-p 18180:18080` |
+| “address already in use” | Puerto ya ocupado (por Jenkins) | Usa otro puerto, ej. `-p 18181:18080` |
+| `DNS_PROBE_FINISHED_NXDOMAIN` | Intentas acceder al nombre interno del contenedor | Usa la IP de la máquina Jenkins |
+| Panel no carga | Docker no iniciado | `systemctl start docker` y verifica con `docker ps` |
+| Repos desaparecen al borrar contenedor | Falta de volumen persistente | Agregar `-v /var/svn-data:/var/opt/csvn` al comando `docker run` |
 
 ---
 
-## Checklist de verificación rápida (para docencia)
+## 🧱 Recomendación para persistencia
 
-- [ ] Se instaló Docker **offline** desde `.deb`  
-- [ ] Se cargó la imagen `svnedge/app` con `docker load`  
-- [ ] Contenedor corre con puertos `3344` y `18180` publicados  
-- [ ] Accede a **panel**: `http://IP_VM:18180`  
-- [ ] Accede a **ViewVC**: `http://IP_VM:18180/viewvc`  
-- [ ] Accede a **repo**: `http://IP_VM:3344/svn/Calculadora`  
-- [ ] Eclipse (Subclipse) hace **checkout/commit** correctamente  
+Si se desea que los repositorios sobrevivan reinicios o recreaciones del contenedor:
+
+```bash
+mkdir -p /var/svn-data
+docker rm -f svnedge
+docker run -d \
+  -p 3344:3343 \
+  -p 18180:18080 \
+  -v /var/svn-data:/var/opt/csvn \
+  --restart always \
+  --name svnedge \
+  svnedge/app
+```
+
+---
+
+## 📜 Créditos y licencia
+
+- **Imagen oficial Docker:** [`svnedge/app`](https://hub.docker.com/r/svnedge/app/tags)  
+  Publicada por **svnedge** — todos los derechos pertenecen a su autor original.  
+- **Software Subversion Edge:** desarrollado por *CollabNet, Inc.*  
+- Esta guía fue creada con fines **educativos y demostrativos** en la Universidad Mesoamericana – UMES 2025.
+
+---
+
+## ✅ Checklist de verificación
+
+- [ ] Docker instalado correctamente (offline)  
+- [ ] Imagen `svnedge/app` cargada con éxito  
+- [ ] Contenedor ejecutándose (`docker ps`)  
+- [ ] Panel accesible en `http://IP_VM:18180`  
+- [ ] ViewVC funcionando (`/viewvc`)  
+- [ ] Repositorio `Calculadora` creado y visible (`/svn/Calculadora`)  
+- [ ] Conexión desde Eclipse confirmada  
+
+---
+
+**Documento elaborado por:**  
+*Nicolás Ochaita y equipo de Ingeniería de Software 2 – UMES 2025*
