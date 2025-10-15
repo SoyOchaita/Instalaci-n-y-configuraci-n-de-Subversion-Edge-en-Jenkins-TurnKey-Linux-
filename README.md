@@ -1,7 +1,7 @@
 # Proyecto Ingeniería de Software 2 – Fase 1  
 ## Instalación y configuración de Subversion Edge en Jenkins (TurnKey Linux) sin conexión a Internet
 
-**Autor:** Nicolás Ochaita  
+**Autor:** Alfonso Ochaita  
 **Créditos:** Imagen Docker **`svnedge/app`** publicada por *svnedge* en [Docker Hub](https://hub.docker.com/r/svnedge/app/tags).  
 Sin esta imagen pública no sería posible replicar este entorno. Todos los derechos y licencias pertenecen a su autor original.
 
