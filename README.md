@@ -19,6 +19,9 @@ El resultado es un entorno completamente funcional de **control de versiones** v
 ## ⚙️ Archivos necesarios
 
 Antes de iniciar, asegúrate de tener en tu equipo local los siguientes archivos comprimidos:
+Les dejo este enlace de google drive debido a que los archivos son muy grandes para github 
+"https://drive.google.com/drive/folders/13E5WNndxEKE23jQuoCMViE3MQa5KHGhh?usp=sharing"
+
 
 ```
 docker-offline-packages.tar.gz   ← contiene los 5 paquetes .deb de Docker
