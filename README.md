@@ -35,7 +35,7 @@ Ambos archivos deben ser **subidos manualmente a la máquina Jenkins** mediante 
 
 1. Abre tu navegador y entra al panel de Webmin:  
    ```
-   https://IP_DE_TU_VM:10000
+   https://IP_DE_TU_VM:1231 (o el que indique el JenkinsServer)
    ```
 2. Ve a: **Others → File Manager**
 3. Navega hasta la ruta `/root/`
@@ -216,7 +216,7 @@ Calculadora/
 ## 💾 Cómo descargar archivos desde Webmin a tu computadora local
 
 1. Entra a Webmin:  
-   `https://IP_DE_TU_VM:10000`
+   `https://IP_DE_TU_VM:12321 (o el que indique JenkinsServer) `
 2. Ve a: **Others → File Manager**
 3. Navega a `/root/`
 4. Selecciona el archivo (`docker-offline-packages.tar.gz` o `svnedge-app.tar.gz`)
