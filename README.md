@@ -35,7 +35,7 @@ Ambos archivos deben ser **subidos manualmente a la máquina Jenkins** mediante 
 
 1. Abre tu navegador y entra al panel de Webmin:  
    ```
-   https://IP_DE_TU_VM:1231 (o el que indique el JenkinsServer)
+   https://IP_DE_TU_VM:12321 (o el que indique el JenkinsServer)
    ```
 2. Ve a: **Others → File Manager**
 3. Navega hasta la ruta `/root/`
